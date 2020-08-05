@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vsofo.authentication.mapper.UserMapper">
+
+
+    <select id="loadUserByUsername" resultMap="fandAllUserAndRole">
+            SELECT u.userId,u.loginName,u.username,u.password,u.passwordSalt,u.isenabled as enabled,u.shouldChangePasswordOnNextLogin
+                    ,r.roleid,r.rolename,r.role
+            FROM PIGFARM.dbo.V_User u WITH(NOLOCK)
+            LEFT JOIN PIGFARM.[dbo].WeChat_UserRole ur ON u.userId= ur.userId
+            LEFT JOIN PIGFARM.[dbo].WeChat_Role r ON ur.WeChatRoleID=r.roleId
+            WHERE u.LoginName=#{username}
+    </select>
+
+    <select id="findAllByRole" resultMap="getUserByRole">
+         SELECT r.roleId,a.AuthorityId,a.url
+                FROM PIGFARM.dbo.WeChat_Role r
+                LEFT JOIN PIGFARM.dbo.WeChat_RoleInAuthority ra on r.RoleId=ra.RoleId
+                LEFT JOIN PIGFARM.dbo.WeChat_Authority a on ra.AuthorityId=a.AuthorityId
+                WHERE r.RoleId=#{roleId}
+    </select>
+
+    <select id="getOrganByLoginName" resultMap="userAndOrgan">
+        SELECT  u.userId,u.UserName,o.organID,o.OrganName,o.WxOrganId
+        FROM PIGFARM.dbo.V_User u
+        LEFT JOIN PIGFARM.dbo.WeChat_UserOrgan uo  ON uo.UserId=u.UserID
+        LEFT JOIN PIGFARM.dbo.WeChat_Organ o ON uo.OrganID= o.OrganId
+        WHERE u.loginName=#{loginName}
+    </select>
+
+    <select id="getFarmsByLoginName" resultMap="userAndFarms">
+        SELECT f.FarmId,f.FarmName
+        FROM PIGFARM.dbo.V_User u
+        LEFT JOIN PIGFARM.dbo.WeChat_UserFarm ef  WITH(NOLOCK) ON ef.userid=u.userid
+        LEFT JOIN PIGFARM.dbo.V_Farms f  WITH(NOLOCK) ON ef.FarmID=f.FarmID
+        WHERE u.loginName=#{loginName}
+    </select>
+
+
+      <resultMap id="fandAllUserAndRole" type="com.vsofo.authentication.entity.po.UserPO">
+            <id property="userId" column="userId"/>
+            <result property="loginName" column="loginName"/>
+            <result property="username" column="username"/>
+            <result property="password" column="password"/>
+            <result property="passwordSalt" column="passwordSalt"/>
+            <result property="enabled" column="enabled"/>
+            <result property="shouldChangePasswordOnNextLogin" column="shouldChangePasswordOnNextLogin"/>
+            <collection property="roles" resultMap="fandAllRole"/>
+        </resultMap>
+        <resultMap id="fandAllRole" type="com.vsofo.authentication.entity.po.RolePO">
+            <id property="roleId" column="roleId"/>
+            <result property="roleName" column="rolename"/>
+            <result property="role" column="role"/>
+        </resultMap>
+
+        <resultMap id="getUserByRole"  type="com.vsofo.authentication.entity.po.RolePO" >
+           <id property="roleId" column="roleId"/>
+           <collection property="authoritys" resultMap="getRoleByPermission"/>
+       </resultMap>
+
+       <resultMap id="getRoleByPermission" type="com.vsofo.authentication.entity.po.AuthorityPO" >
+           <id property="authorityId" column="authorityId"/>
+           <result property="url" column="url"/>
+       </resultMap>
+
+    <resultMap id="userAndOrgan" type="com.vsofo.authentication.entity.po.UserPO">
+        <id property="userId" column="userId"/>
+        <result property="username" column="username"/>
+        <collection property="organs" resultMap="getOrgan"/>
+    </resultMap>
+    <resultMap id="getOrgan" type="com.vsofo.authentication.entity.po.Organ">
+        <id property="organID" column="WxOrganId"/>
+        <result property="organName" column="organName"/>
+    </resultMap>
+
+    <resultMap id="userAndFarms" type="com.vsofo.authentication.entity.po.UserPO">
+        <id property="userId" column="userId"/>
+        <result property="username" column="username"/>
+        <collection property="farms" resultMap="getFarm"/>
+    </resultMap>
+    <resultMap id="getFarm" type="com.vsofo.authentication.entity.po.Farms">
+        <id property="farmID" column="farmID"/>
+        <result property="farmName" column="FarmName"/>
+    </resultMap>
+</mapper>

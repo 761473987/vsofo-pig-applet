@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.FarmsMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+
+    <select id="findFarmsByOrganId" resultType="int">
+        SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{organId}
+    </select>
+
+
+
+    <select id="findFarm" resultType="com.vsofo.applet.pigfarmstat.vo.farms.FarmsVo">
+        SELECT
+            FarmID,
+            FarmName
+        FROM
+            V_Farms
+        WHERE
+            FarmName IS NOT NULL
+        <if test="farmDto.organId != null and farmDto.organId != -1">
+            <choose>
+                <when test="farmDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{farmDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+            <if test="user != null and user.roleId == 3">
+                and FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            and IsDeleted = 0
+        ORDER BY
+            FarmName
+    </select>
+
+    <select id="findFarmsCount" resultType="int">
+        SELECT count(0) FROM V_Farms WHERE IsDeleted = 0 and BreedingType = 1
+        <if test="indicatorsDto.organID != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+
+    </select>
+</mapper>

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.FarmDailyMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+            <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+            <include refid="organ"></include>
+        )
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WITH(NOLOCK) WHERE EmployeeID = #{user.employeeId}
+    </sql>
+
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WITH(NOLOCK) WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <select id="findCountDaily" resultType="com.vsofo.applet.pigfarmstat.dos.daily.CountDaily">
+        SELECT
+            ISNULL(sum( CASE WHEN FD.PigType = 1 OR FD.PigType = 3 THEN FD.PigAmount ELSE 0 END ),0) AS 'boarNum',
+            ISNULL(sum( CASE WHEN FD.PigType = 2 OR FD.PigType = 4 THEN FD.PigAmount ELSE 0 END ),0) AS 'sowNum',
+            ISNULL(sum( CASE WHEN FD.PigType = 5 THEN FD.PigAmount ELSE 0 END ),0) AS 'hogNum'
+        FROM
+            [dbo].[WeChat_PigInventory_Daily] FD WITH(NOLOCK)
+        WHERE
+            DateDiff( dd, FD.Date, #{dailySearchDto.stateDate} ) = 0
+            <if test="dailySearchDto.farmId != null and dailySearchDto.farmId != -1">
+                AND FD.FarmID = #{dailySearchDto.farmId}
+            </if>
+
+            <if test="user != null and user.roleId == 3">
+                and FD.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            <if test="dailySearchDto.organId != null and dailySearchDto.organId != -1">
+                <choose>
+                    <when test="dailySearchDto.organId == 10000">
+                            AND FD.FarmID in(
+                            <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND FD.FarmID in(
+                            SELECT FarmID FROM [dbo].[V_Farms] WITH(NOLOCK) WHERE OrganID = #{dailySearchDto.organId}
+                        )
+                    </otherwise>
+                </choose>
+            </if>
+    </select>
+
+    <select id="findHistogram" resultType="com.vsofo.applet.pigfarmstat.dos.daily.HistogramDaily">
+            SELECT O.OrganName , T.* FROM V_Organ O WITH(NOLOCK) LEFT JOIN (
+                SELECT
+                    F.OrganID,
+                    ISNULL(sum( CASE WHEN FD.PigType = 1 OR FD.PigType = 3 THEN FD.PigAmount ELSE 0 END ),0) AS 'boar',
+                    ISNULL(sum( CASE WHEN FD.PigType = 2 OR FD.PigType = 4 THEN FD.PigAmount ELSE 0 END ),0) AS 'sow',
+                    ISNULL(sum( CASE WHEN FD.PigType = 5 THEN FD.PigAmount ELSE 0 END ),0) AS 'hog'
+                FROM
+                    V_Farms F
+                    INNER JOIN [dbo].[WeChat_PigInventory_Daily] FD WITH(NOLOCK) ON F.FarmID = FD.FarmID
+                WHERE
+                     <include refid="organIds"><property name="alias" value="F"/></include>
+                    AND DateDiff( dd, FD.Date, #{dailySearchDto.stateDate} ) = 0
+                GROUP BY
+                    F.OrganID
+                    ) T ON T.OrganID = O.OrganID
+                where  <include refid="organIds"><property name="alias" value="O"/></include>
+            union
+                SELECT
+                '其他猪场（合作)' as OrganName,
+                10000 as OrganID,
+                ISNULL(sum( CASE WHEN FD.PigType = 1 OR FD.PigType = 3 THEN FD.PigAmount ELSE 0 END ),0) AS 'boar',
+                ISNULL(sum( CASE WHEN FD.PigType = 2 OR FD.PigType = 4 THEN FD.PigAmount ELSE 0 END ),0) AS 'sow',
+                ISNULL(sum( CASE WHEN FD.PigType = 5 THEN FD.PigAmount ELSE 0 END ),0) AS 'hog'
+                FROM
+                V_Farms F
+                INNER JOIN [dbo].[WeChat_PigInventory_Daily] FD WITH(NOLOCK) ON F.FarmID = FD.FarmID
+                WHERE
+                <include refid="notOrganIds"><property name="alias" value="F"/></include>
+                AND DateDiff( dd, FD.Date, #{dailySearchDto.stateDate} ) = 0
+    </select>
+
+    <select id="findAmountDailyDetailValueVo" resultType="com.vsofo.applet.pigfarmstat.vo.daily.AmountDailyDetailValueVo">
+        SELECT SUM(PigAmount) as value,PigType,PigTypeName FROM(
+            SELECT
+            CASE
+                FD.PigType
+                WHEN 5 THEN
+                FD.ProductionStatusID ELSE FD.PigType
+                END AS PigType,
+            CASE
+                FD.PigType
+                WHEN 5 THEN
+                FD.ProductionStatusName ELSE FD.PigTypeName
+                END AS PigTypeName,
+                FD.PigAmount
+            FROM
+                WeChat_PigInventory_Daily AS FD WITH(NOLOCK)
+            WHERE
+                DateDiff( dd, FD.Date, #{dailySearchDto.stateDate} ) = 0
+                <if test="pigvarietyIds != null">
+                   and FD.PigvarietyID in
+                   <foreach collection="pigvarietyIds" item="pigvarietyId" separator="," open="(" close=")" >
+                       #{pigvarietyId}
+                   </foreach>
+                </if>
+                <if test="dailySearchDto.farmId != null and dailySearchDto.farmId != -1">
+                    AND FD.FarmID = #{dailySearchDto.farmId}
+                </if>
+                <if test="user != null and user.roleId == 3">
+                    and FD.FarmID in (<include refid="getFarmIds"></include>)
+                </if>
+                <if test="pigType != null and pigType != -1">
+                    <choose>
+                        <when test="pigType == 1">
+                            AND(FD.PigType = 1 OR FD.PigType = 3)
+                        </when>
+                        <when test="pigType == 2">
+                            AND(FD.PigType = 2 OR FD.PigType = 4)
+                        </when>
+                        <otherwise>
+                            AND FD.PigType = #{pigType}
+                        </otherwise>
+                    </choose>
+                </if>
+                <if test="dailySearchDto.organId != null and dailySearchDto.organId != -1">
+                    <choose>
+                        <when test="dailySearchDto.organId == 10000">
+                            AND FD.FarmID in(
+                                <include refid="cooperation"></include>
+                            )
+                        </when>
+                        <otherwise>
+                            AND FD.FarmID in(
+                            SELECT FarmID FROM [dbo].[V_Farms] WITH(NOLOCK) WHERE OrganID = #{dailySearchDto.organId}
+                            )
+                        </otherwise>
+                    </choose>
+                </if>
+                )TT
+                GROUP BY PigType,PigTypeName
+    </select>
+
+    <select id="findPigVariety" resultType="com.vsofo.applet.pigfarmstat.vo.daily.PigVarietyVo">
+        SELECT PigVarietyID,PigVarietyName FROM [dbo].[V_PigVariety] WITH(NOLOCK) WHERE IsDeleted = 0 and  PigVarietyID > 15
+    </select>
+
+    <select id="findProductionStatus" resultType="String">
+        select ProductionStatusName from V_ProductionStatus WITH(NOLOCK) where  PigeTypeID = #{pigeTypeId}
+    </select>
+
+    <select id="findExeclModel" resultType="com.vsofo.applet.pojo.ExcelModel">
+        SELECT
+			F.FarmName,
+			F.CompanyFullName,
+            ISNULL(sum( CASE WHEN FD.PigType = 1 OR FD.PigType = 3 THEN FD.PigAmount ELSE 0 END ),0) AS 'boarNum',
+            ISNULL(sum( CASE WHEN FD.PigType = 2 OR FD.PigType = 4 THEN FD.PigAmount ELSE 0 END ),0) AS 'sowNum',
+            ISNULL(sum( CASE WHEN FD.PigType = 5 THEN FD.PigAmount ELSE 0 END ),0) AS 'hogNum',
+			ISNULL(sum( CASE WHEN FD.PigType = 5 THEN FD.PigSuch ELSE 0 END ),0) AS 'pigSuch',
+			SUM(FD.PigAmount) as 'sum',
+            CASE AppID
+				WHEN '金智猪' THEN '金智猪'
+				WHEN '放养系统' THEN '放养系统'
+				ELSE '小程序'
+			END as AppId
+        FROM
+            [dbo].[WeChat_PigInventory_Daily] FD WITH(NOLOCK)
+			LEFT JOIN V_Farms F ON F.FarmID =  FD.FarmID
+        WHERE
+            DateDiff( dd ,FD.Date, #{date}) = 0
+		group by FD.FarmID,F.FarmName,F.CompanyFullName,AppId
+    </select>
+</mapper>

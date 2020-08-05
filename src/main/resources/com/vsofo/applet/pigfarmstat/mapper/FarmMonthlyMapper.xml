@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.FarmMonthlyMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+    <sql id="suchSum">
+        ISNULL( ${alias}.OutTotalMale, 0 ) + ISNULL( ${alias}.OutTotalFemale, 0 ) + ISNULL( ${alias}.OutTotalCastrated, 0 )
+    </sql>
+    <sql id="conditionDate">
+        where
+        ${alias}."year" = #{monthlySearchDto.year}
+        <if test="monthlySearchDto.statMonth != null">
+            AND ${alias}."Month" &gt;= #{monthlySearchDto.statMonth}
+        </if>
+        <if test="monthlySearchDto.endMonth != null">
+            AND  ${alias}."Month" &lt;= #{monthlySearchDto.endMonth}
+        </if>
+    </sql>
+
+    <sql id="condition">
+        where
+        FM."year" = #{monthlySearchDto.year}
+        <if test="monthlySearchDto.statMonth != null">
+            AND FM."Month" &gt;= #{monthlySearchDto.statMonth}
+        </if>
+        <if test="monthlySearchDto.endMonth != null">
+            AND  FM."Month" &lt;= #{monthlySearchDto.endMonth}
+        </if>
+        <if test="monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1" >
+            AND  FM."FarmID" = #{monthlySearchDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FM.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="monthlySearchDto.organID != null and monthlySearchDto.organID != -1" >
+            AND  FM."FarmID" in(SELECT FarmID FROM V_Farms WHERE OrganID = #{monthlySearchDto.organId} )
+        </if>
+    </sql>
+
+    <select id="findLineChartVo" resultType="com.vsofo.applet.pigfarmstat.vo.monthly.LineChartVo">
+        SELECT
+            "Month",
+            SUM(PigSuch) AS value
+        FROM
+            WeChat_PigInventory_Month FM
+            <include refid="conditionDate">
+                <property name="alias" value="FM"/>
+            </include>
+            <if test="monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1" >
+                AND  FM."FarmID" = #{monthlySearchDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and FM.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            <if test="monthlySearchDto.organID != null and monthlySearchDto.organID != -1" >
+                <choose>
+                    <when test="monthlySearchDto.organID == 10000">
+                        AND  FM."FarmID" in(
+                            <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND  FM."FarmID" in(SELECT FarmID FROM V_Farms WHERE OrganID = #{monthlySearchDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="pigType != null">
+                and FM.PigType = #{pigType}
+            </if>
+        GROUP BY
+            "Month"
+    </select>
+
+    <select id="findColumnarVo" resultType="com.vsofo.applet.pigfarmstat.vo.monthly.ColumnarVo">
+        SELECT * from (
+            SELECT
+                O.OrganID,
+                O.OrganName,
+                T.MONTH as "month",
+                SUM(T.value) as value
+            FROM
+                V_Organ O
+                INNER JOIN (
+                        SELECT
+                            F.OrganID,
+                            FM.MONTH,
+                            PigSuch  as VALUE
+                        FROM
+                            V_Farms F
+                        INNER JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+                            <include refid="conditionDate">
+                            <property name="alias" value="FM"/>
+                        </include>
+                        and
+                            PigType = 5
+                    ) T ON O.OrganID = T.OrganID
+                where  <include refid="organIds"><property name="alias" value="O"/></include>
+                GROUP BY O.OrganID,O.OrganName,T.MONTH
+                union
+            SELECT
+                10000 AS OrganID,
+                '其他猪场（合作)' AS OrganName,
+                FM.MONTH,
+                SUM(PigSuch) AS VALUE
+            FROM
+                V_Farms F
+            INNER JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+                <include refid="conditionDate">
+                    <property name="alias" value="FM"/>
+                </include>
+            AND
+                PigType = 5
+            AND
+                <include refid="notOrganIds"><property name="alias" value="F"/></include>
+            GROUP BY
+                MONTH
+        ) T ORDER by T.MONTH
+    </select>
+
+    <select id="findBread" resultType="com.vsofo.applet.pigfarmstat.vo.monthly.BreadVo">
+        SELECT
+            O.organId,
+            O.OrganName as item,
+            T.VALUE
+        FROM
+            V_Organ O
+            LEFT JOIN (
+        SELECT
+            F.OrganID,
+            SUM( FM.PigSuch ) AS VALUE
+        FROM
+            V_Farms F
+            INNER JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+            <include refid="conditionDate">
+                <property name="alias" value="FM"/>
+            </include>
+            <if test="monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1" >
+                AND  FM."FarmID" = #{monthlySearchDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and FM.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            AND FM.PigType = 5
+        GROUP BY
+            F.OrganID
+            ) T ON O.OrganID = T.OrganID
+        WHERE
+            <include refid="organIds"><property name="alias" value="O"/></include>
+        union
+        SELECT
+            10000 as organId,
+            '其他猪场（合作)' as item,
+            SUM(
+                FM.PigSuch
+            ) AS VALUE
+        FROM
+            V_Farms F
+        INNER JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+        <include refid="conditionDate">
+            <property name="alias" value="FM"/>
+        </include>
+        and
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+        AND FM.PigType = 5
+    </select>
+
+    <select id="findMoreLineChartVo" resultType="com.vsofo.applet.pigfarmstat.vo.monthly.MoreLineChartVo">
+       SELECT
+            F.OrganID,
+            FM.month,
+            SUM( FM.PigSuch ) AS value
+        FROM
+            V_Farms F
+            INNER JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+
+        <include refid="conditionDate">
+            <property name="alias" value="FM"/>
+        </include>
+        <if test="monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1" >
+            AND  FM."FarmID" = #{monthlySearchDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FM.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        AND
+        <include refid="organIds"><property name="alias" value="F"/></include>
+        GROUP BY
+            F.OrganID,
+            FM.MONTH
+        union
+        SELECT
+            10000 AS OrganID,
+            FM.MONTH,
+            SUM(FM.PigSuch) AS VALUE
+        FROM
+            V_Farms F
+        INNER JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+            <include refid="conditionDate">
+                <property name="alias" value="FM"/>
+            </include>
+        AND
+            <include refid="notOrganIds"><property name="alias" value="F"/></include>
+        GROUP BY
+            MONTH
+    </select>
+
+    <select id="findAmountLineChartVo" resultType="com.vsofo.applet.pigfarmstat.vo.monthly.LineChartVo">
+        SELECT
+            "Month",
+            sum( PigSuch ) AS value
+        FROM
+        WeChat_PigInventory_Month FM
+        <include refid="condition">
+            <property name="alias" value="FM"/>
+        </include>
+        <if test="pigType == 2">
+           and (FM.PigType = 2 OR FM.PigType = 4)
+        </if>
+        <if test="pigType == 4">
+            and (FM.PigType = 1 OR FM.PigType = 3)
+        </if>
+        GROUP BY
+            "Month"
+    </select>
+
+    <select id="findSuchSum" resultType="int">
+        SELECT ISNULL(SUM(PigSuch),0) as PigSuch FROM [dbo].[WeChat_PigInventory_Month] FM
+        <include refid="conditionDate">
+            <property name="alias" value="FM"/>
+        </include>
+        <if test="monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1" >
+            AND  FM."FarmID" = #{monthlySearchDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FM.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="monthlySearchDto.organID != null and monthlySearchDto.organID != -1" >
+            <choose>
+                <when test="monthlySearchDto.organID == 10000">
+                    AND  FM."FarmID" in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND  FM."FarmID" in(SELECT FarmID FROM V_Farms WHERE OrganID = #{monthlySearchDto.organId} )
+                </otherwise>
+            </choose>
+        </if>
+        AND FM.PigType = 5
+    </select>
+
+    <select id="findSuchMonthDetailValueVo" resultType="com.vsofo.applet.pigfarmstat.vo.daily.AmountDailyDetailValueVo">
+        SELECT SUM(PigSuch) as value,PigType,PigTypeName FROM(
+            SELECT
+                CASE
+                    FM.PigType
+                WHEN 5 THEN
+                    FM.ProductionStatusID
+                ELSE FM.PigType
+                END AS PigType,
+                CASE
+                    FM.PigType
+                 WHEN 5 THEN
+                FM.ProductionStatusName ELSE FM.PigTypeName
+                END AS PigTypeName,
+                FM.PigSuch
+            FROM
+                WeChat_PigInventory_Month AS FM WITH(NOLOCK)
+            <include refid="conditionDate">
+                <property name="alias" value="FM"/>
+            </include>
+            <if test="pigvarietyIds != null">
+                and FM.PigvarietyID in
+                <foreach collection="pigvarietyIds" item="pigvarietyId" separator="," open="(" close=")" >
+                    #{pigvarietyId}
+                </foreach>
+            </if>
+            <if test="monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1" >
+                AND  FM."FarmID" = #{monthlySearchDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and FM.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            <if test="monthlySearchDto.organID != null and monthlySearchDto.organID != -1" >
+                <choose>
+                    <when test="monthlySearchDto.organID == 10000">
+                        AND  FM."FarmID" in(
+                        <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND  FM."FarmID" in(SELECT FarmID FROM V_Farms WHERE OrganID = #{monthlySearchDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+            AND FM.PigType = 5
+            )TT
+        GROUP BY PigType,PigTypeName
+    </select>
+
+    <select id="orderByPigSuch" resultType="com.vsofo.applet.pigfarmstat.vo.DoubleKV">
+
+    </select>
+    <select id="findFarmByOrganId" resultType="com.vsofo.applet.pigfarmstat.vo.IntegerKV">
+        SELECT
+            F.FarmName as k,
+            ISNULL(SUM( FM.PigSuch ),0) AS v
+                FROM
+            V_Farms F
+            Left JOIN WeChat_PigInventory_Month FM ON F.FarmID = FM.FarmID
+            <include refid="conditionDate">
+                <property name="alias" value="FM"/>
+            </include>
+            <if test="monthlySearchDto.organID != null and monthlySearchDto.organID != -1" >
+                <choose>
+                    <when test="monthlySearchDto.organID == 10000">
+                        AND  FM."FarmID" in(
+                        <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND  FM."FarmID" in(SELECT FarmID FROM V_Farms WHERE OrganID = #{monthlySearchDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+            and F.IsDeleted = 0
+            AND FM.PigType = 5
+        GROUP BY F.FarmName
+    </select>
+</mapper>

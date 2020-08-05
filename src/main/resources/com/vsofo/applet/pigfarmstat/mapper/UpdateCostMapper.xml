@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.UpdateCostMapper">
+    <select id="getCostData" resultType="com.vsofo.applet.pigfarmstat.pojo.PigframStatCost">
+        SELECT  T0.Period period,T4.FarmID farm_id,T3.productionLineID production_line_id,
+          SUM(CASE WHEN T0.CostID = N'101'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  fodder ,
+          SUM(CASE WHEN T0.CostID = N'201'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'202'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'203'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'204'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'205'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END)  AS drug,
+          SUM(CASE WHEN T0.CostID = N'301'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  semen ,
+          SUM(CASE WHEN T0.CostID = N'701'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'501'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  staff_salary,
+          SUM(CASE WHEN T0.CostID = N'601'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'799'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  other,
+          SUM(CASE WHEN T0.CostID = N'702'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) +
+          SUM(CASE WHEN T0.CostID = N'703'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  depreciation_of_fixed_assets,
+          SUM(CASE WHEN T0.CostID = N'704'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  maintenance_fees ,
+          SUM(CASE WHEN T0.CostID = N'705'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  energy_costs ,
+          SUM(CASE WHEN T0.CostID = N'706'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  low_value_consumables ,
+          SUM(CASE WHEN T0.CostID = N'900'   THEN ISNULL(T0.EndBalance ,0) ELSE 0 END) AS  purchased_piglets
+       FROM V_MTC_COST_CAL_05_LOG T0 WITH(NOLOCK)
+       LEFT JOIN V_MTC_COST_MSDT T1 WITH(NOLOCK) ON T0.BranchID = T1.ItemCode AND T1.ItemType = N'A'
+       LEFT JOIN V_MTC_COST_MSDT T2 WITH(NOLOCK) ON T0.WhsCode = T2.ItemCode AND T2.ItemType = N'D'
+       LEFT JOIN V_ProductionLine T3 WITH(NOLOCK) ON LEFT(T0.WhsCode ,9)+N'0' = T3.SapCode
+       LEFT JOIN V_Farms T4    WITH(NOLOCK) ON T3.FarmID = T4.FarmID
+       WHERE T0.CalStep NOT IN ( N'RM' ,N'DH' ,N'GZ' )
+          AND ISNULL(T0.EndQty ,0) != 0
+          GROUP BY T0.Period,T4.FarmID,T3.productionLineID
+          ORDER BY T4.FarmID
+    </select>
+</mapper>

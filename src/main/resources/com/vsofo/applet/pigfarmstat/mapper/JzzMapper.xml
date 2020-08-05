@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.JzzMapper">
+    <select id="findJzzPigStatistical" resultType="com.vsofo.applet.pigfarmstat.pojo.JzzPigInvoicingStatStatDay">
+    SELECT
+                (CASE T1.FarmID WHEN 50 THEN 38--南平长生托管场 天种-南平长生
+                                WHEN 76 THEN 39--大地牧业托管场 天种-南平大地
+                                WHEN 109 THEN 40--青草湖 广州青草湖
+                                WHEN 118 THEN 41--仁化子公司 金永-仁化
+                                WHEN 119 THEN 42--金溪分公司 金永-金溪
+                                ELSE 0 END)			AS FarmID,--养殖场ID
+                (CASE T1.PigTypeID WHEN 5 THEN 1--3.0去掉了待淘类型,默认种母猪
+                                ELSE PigTypeID END) AS PigTypeID,--猪只类型ID
+                ISNULL(T1.PigVarietyID,15)			AS PigVarietyID,--猪只品种ID,没有找到对应3.0品种的话默认LY-长约15
+                T1.FarmID							AS jzzFarmId,--金智猪养殖场ID
+                T2.FarmName							AS jzzFarmName,--金智猪养殖场名称
+                T1.LineID							AS jzzLineId,--金智猪生产线ID
+                T1.PigTypeID						AS jzzPigTypeId,--金智猪种猪类型ID
+                T3.TypeName							AS jzzTypeName,--金智猪种猪类型名称
+                T1.PigVarietyID						AS jzzPigVarietyId,--金智猪猪只品种ID
+                T4.VarietyName						AS jzzVarietyName,--金智猪猪只品种名称
+                T1.StockNum,--期末存栏
+                --SUM(EnterInNum)+SUM(ChangeHouseInNum)-SUM(ChangeHouseOutNum)+SUM(TransferInNum)-SUM(TransferOutNum)
+                --+SUM(ChangeTypeInNum)-SUM(ChangeTypeOutNum)+SUM(RevisionInNum)-SUM(RevisionOutNum)-SUM(SaleOutNum)
+                ---SUM(EliminateOutNum)-SUM(DeathOutNum)-SUM(DeleteOutNum)+SUM(OldStockNum) SumStockNum,--计算出的存栏
+                T1.StatDate,
+                T1.EnterInNum,--入场数量
+                T1.ChangeHouseInNum,--转舍入数量,
+                T1.ChangeHouseOutNum,--转舍出数量,
+                T1.TransferInNum,--调拨入数量,
+                T1.TransferOutNum,--调拨出数量,
+                T1.ChangeTypeInNum,--转类别入数量,
+                T1.ChangeTypeOutNum,--转类别出数量,
+                T1.RevisionInNum,--调整入数量,
+                T1.RevisionOutNum,--调整出数量,
+                T1.SaleOutNum,--销售出数量,
+                T1.EliminateOutNum,--淘汰出数量,
+                T1.DeathOutNum,--死亡出数量,
+                T1.DeleteOutNum,--删除出数量,
+                T1.OldStockNum--原库存数量=期初存栏
+            FROM PigMGT_Stat.dbo.Pig_InvoicingStat_StatDay T1--种猪存栏
+            LEFT JOIN PigMGT.dbo.Company_FarmInfo T2 ON T1.FarmID=T2.ID--养殖场
+            LEFT JOIN PigMGT_Stat.dbo.[Dict_PigType] T3 ON T1.PigTypeID=T3.TypeValue--种猪类型
+            LEFT JOIN PigMGT_Dict.dbo.Dict_PigVariety T4 ON T1.PigVarietyID=T4.ID--猪只品种
+            WHERE T1.StatDate = #{columnMap.statDate,jdbcType=DATE}
+            AND T1.FarmID IN(
+            50,	--南平长生托管场
+            76,	--大地牧业托管场
+            109,--青草湖
+            118,--仁化子公司
+            119	--金溪分公司
+            )
+    </select>
+
+    <select id="findJzzHogStatistical" resultType="com.vsofo.applet.pigfarmstat.pojo.JzzHogInvoicingStatStatDay">
+		SELECT
+			(CASE T1.FarmID				WHEN 50 THEN 38--南平长生托管场 天种-南平长生
+										WHEN 76 THEN 39--大地牧业托管场 天种-南平大地
+										WHEN 109 THEN 40--青草湖 广州青草湖
+										WHEN 118 THEN 41--仁化子公司 金永-仁化
+										WHEN 119 THEN 42--金溪分公司 金永-金溪
+										ELSE 0 END)						AS FarmID,--养殖场ID
+			(CASE T1.ProduceStatusID	WHEN 17 THEN 17--金智猪的育肥暂时先转育肥-肥猪17,育肥-种猪:21,育肥-肥猪:17
+										WHEN 21 THEN 22--后备公猪 转 培育猪
+										ELSE T1.ProduceStatusID END)	AS ProduceStatusID,--生产状态ID
+			15															AS PigVarietyID,--猪只品种，默认LY-长约15
+			T1.FarmID													AS jzzFarmId,--金智猪养殖场ID
+			T2.FarmName													AS jzzFarmName,--金智猪养殖场名称
+			T1.LineID													AS jzzLineId,--金智猪生产线ID
+			T1.HouseID													AS jzzHouseId,--金智猪栋舍ID
+			T1.HouseTypeID												AS jzzHouseTypeId,--金智猪栋舍类型ID
+			T1.HogBatchID												AS jzzHogBatchId,--金智猪猪批次编号
+			T1.ProduceStatusID											AS jzzProduceStatusId,--金智猪栋舍生产状态ID
+			T3.ProduceStatusName										AS jzzProduceStatusName,--金智猪栋舍生产状态名称
+			T1.StockNum,--期末存栏
+			T1.StatDate,
+			T1.ChangeInNum,--转舍入数量
+			T1.ChangeOutNum,--转出出数量
+			T1.DeliverInNum,--分娩入数量
+			T1.InventoryInNum,--盘点入数量
+			T1.InventoryOutNum,--盘点出数量
+			T1.DeathOutNum,--死亡出数量
+			T1.BuyInNum,--购入数量
+			T1.SaleOutNum,--销售数量,
+			T1.ProduceOutNum,--转生产数量,
+			T1.OldStockNum--原库存数量=期初存栏
+		FROM PigMGT_Stat.dbo.Hog_InvoicingStat_StatDay T1--金智猪商品猪存栏
+		LEFT JOIN PigMGT.dbo.Company_FarmInfo T2 ON T1.FarmID=T2.ID--金智猪养殖场
+		LEFT JOIN PigMGT_Dict.dbo.Dict_PigProduceStatus T3 ON T1.ProduceStatusID=T3.ID--金智猪栋舍生产状态
+		WHERE T1.StatDate = #{columnMap.statDate,jdbcType=DATE}
+		AND T1.FarmID IN(
+		50,	--南平长生托管场
+		76,	--大地牧业托管场
+		109,--青草湖
+		118,--仁化子公司
+		119	--金溪分公司
+		)
+
+    </select>
+</mapper>

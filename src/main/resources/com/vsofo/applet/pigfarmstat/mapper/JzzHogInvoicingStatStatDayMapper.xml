@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.JzzHogInvoicingStatStatDayMapper">
+
+    <insert id="batchInsert" parameterType="com.vsofo.applet.pigfarmstat.pojo.JzzHogInvoicingStatStatDay">
+        <foreach collection="list" item="item">
+            INSERT INTO JZZ_Hog_InvoicingStat_StatDay(
+            [FarmID]
+            ,[ProduceStatusID]
+            ,[PigVarietyID]
+            ,[JZZ_FarmID]
+            ,[JZZ_FarmName]
+            ,[JZZ_LineID]
+            ,[JZZ_HouseID]
+            ,[JZZ_HouseTypeID]
+            ,[JZZ_HogBatchID]
+            ,[JZZ_ProduceStatusID]
+            ,[JZZ_ProduceStatusName]
+            ,[StockNum]
+            ,[StatDate]
+            ,[ChangeInNum]
+            ,[ChangeOutNum]
+            ,[DeliverInNum]
+            ,[InventoryInNum]
+            ,[InventoryOutNum]
+            ,[DeathOutNum]
+            ,[BuyInNum]
+            ,[SaleOutNum]
+            ,[ProduceOutNum]
+            ,[OldStockNum]
+            )values (
+                #{item.farmId},
+                #{item.produceStatusId},
+                #{item.pigVarietyId},
+                #{item.jzzFarmId},
+                #{item.jzzFarmName},
+                #{item.jzzLineId},
+                #{item.jzzHouseId},
+                #{item.jzzHouseTypeId},
+                #{item.jzzHogBatchId},
+                #{item.jzzProduceStatusId},
+                #{item.jzzProduceStatusName},
+                #{item.stockNum},
+                #{item.statDate},
+                #{item.changeInNum},
+                #{item.changeOutNum},
+                #{item.deliverInNum},
+                #{item.inventoryInNum},
+                #{item.inventoryOutNum},
+                #{item.deathOutNum},
+                #{item.buyInNum},
+                #{item.saleOutNum},
+                #{item.produceOutNum},
+                #{item.oldStockNum}
+            );
+        </foreach>
+    </insert>
+</mapper>

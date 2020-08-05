@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.ProductionMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+
+    <select id="findGestationDayNum" resultType="double">
+        SELECT
+        AVG ( CAST ( DATEDIFF( DAY, MatingDate, DeliveryDate ) AS DECIMAL ) ) AS value
+        FROM
+        V_ProductionEfficiency_Delivery ped
+        INNER JOIN V_Farms f ON ped.FarmID = f.FarmID
+        WHERE
+        DeliveryDate IS NOT NULL
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and ped.DeliveryDate BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND f.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and f.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND f.FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND f.FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+        GROUP BY
+        MONTH (ped.DeliveryDate)
+    </select>
+
+    <select id="totalAmountWeek" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT
+        P.DataType,
+        ISNULL(sum(cast(P.value as decimal)),0) as Reality
+        FROM
+        PIGFARM_Stat.dbo.V_ProductionEfficiency P
+        INNER JOIN V_Farms F ON F.FarmID = P.FarmID and F.IsDeleted = 0 and F.BreedingType = 1
+        WHERE 1=1
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and P.Date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY P.DataType
+    </select>
+
+    <select id="avgAmountWeek" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT
+        P.DataType,
+        ISNULL(sum(cast(P.value as decimal)),0) as Reality
+        FROM PIGFARM_Stat.dbo.V_ProductionEfficiency P
+        INNER JOIN V_Farms F ON F.FarmID = P.FarmID and F.IsDeleted = 0 and F.BreedingType = 1
+        where 1=1
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and P.Date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY P.DataType
+    </select>
+
+    <select id="findTtmzpjtl" resultType="double">
+        SELECT
+        avg(cast(P.Parity as decimal)) as parity
+        FROM
+        V_ProductionEfficiency_Change P
+        where
+        PigsType in (2,4)
+        and P.DataType='Eliminate'
+        and P.Parity is not null
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and P.date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+    </select>
+
+    <select id="findLsyScmzzb" resultType="double" statementType="CALLABLE">
+        BEGIN
+        DECLARE
+        @DateStart datetime, @DateEnd datetime
+        SET @DateStart = #{indicatorsDto.beginDate}
+        SET @DateEnd = #{indicatorsDto.endDate};
+        DECLARE
+        @befcount DECIMAL, @befSowCount DECIMAL SELECT
+        @befcount = COUNT ( * ),
+        @befSowCount = AVG ( CAST ( ISNULL( t.SowCount, 0 ) AS DECIMAL ) )
+        FROM
+        V_ProductionEfficiency_Inventory AS t
+        WHERE
+        1=1
+        <if test="indicatorsDto.organId !=null">
+            and t.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and t.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and t.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        AND t.[Date] BETWEEN ( @DateStart - 116 )
+        AND ( @DateEnd - 116 );
+        SELECT
+        COUNT ( * ) /@befSowCount /@befcount * 365 AS t2
+        FROM
+        V_ProductionEfficiency_Delivery t
+        WHERE
+        1=1
+        <if test="indicatorsDto.organId !=null">
+            and t.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and t.FarmID =#{indicatorsDto.farmId}
+        </if>
+        AND t.DeliveryDate BETWEEN ( @DateStart )
+        AND ( @DateEnd )
+        END
+    </select>
+
+    <select id="findLactationDayNum" resultType="double">
+        SELECT
+        ISNULL( AVG ( CAST ( DATEDIFF( DAY, ped.DeliveryDate, ped.WeaningDate ) AS DECIMAL )), 0 ) as value
+        FROM
+        V_ProductionEfficiency_Delivery AS ped
+        INNER JOIN V_Farms AS f ON ped.FarmID = f.FarmID
+        WHERE
+        1 = 1
+        <if test="user != null and user.roleId == 3">
+            and t.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and WeaningDate BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND f.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and f.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND f.FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND f.FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+        AND WeaningDate IS NOT NULL
+        GROUP BY
+        MONTH (ped.WeaningDate)
+    </select>
+    <select id="findFmwszlzh" resultType="double">
+        SELECT
+            sum(cast(TotalWeight as decimal) ) as value
+        FROM
+            V_ProductionEfficiency_Delivery
+        WHERE
+            1=1
+            and DeliveryID is not null
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+    <select id="findDnwzzh" resultType="double">
+        SELECT
+            ISNULL(sum( WeaningWeight ),0) as value
+        FROM
+        V_ProductionEfficiency_Weaning
+        WHERE
+        1=1
+        and WeaningID is not null
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+    <!--    断奶-配种间隔天数-->
+    <select id="findDnpzjgts" resultType="double">
+        SELECT ISNULL(AVG( CAST ( WeaningMatingDays AS DECIMAL ( 11, 2 ) ) ),0) WeaningMatingDays
+        FROM
+        V_ProductionEfficiency_Mating
+        WHERE
+        WeaningMatingDays > 0
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+
+    <select id="findFmjg" resultType="double">
+        SELECT
+             AVG(cast(DeliveryToDeliveryDays as decimal)  ) as value
+        FROM
+             V_ProductionEfficiency_Delivery
+        WHERE
+             DeliveryToDeliveryDays > 0
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and DeliveryDate BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+    <!--分娩活仔数-->
+    <select id="findFmhzs" resultType="double">
+        SELECT
+            sum(cast(HealthyNumber as decimal)) as value
+        FROM
+            V_ProductionEfficiency_Delivery
+        WHERE
+            1=1
+        and DeliveryID is not null
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+
+    <select id="findNpd" resultType="double">
+        SELECT
+            SUM((NPD / CAST(Total as float)) * 365) as value
+        FROM V_ProductionEfficiency_NPD_SummaryDate
+        WHERE NPD != 0 AND Total != 0
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+    <select id="findFmmzPjtl" resultType="double">
+        SELECT
+	        AVG(CAST ( Parity AS DECIMAL )) AS VALUE
+        FROM
+            [dbo].[V_ProductionEfficiency_Delivery]
+        WHERE
+            DeliveryDate IS NOT NULL
+            AND DeliveryID IS NOT NULL
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and DeliveryDate BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+
+
+
+    <!--不包含后备猪NPD-->
+    <select id="findNPDNoHbz" resultType="double">
+        select avg(npdYear) as value from (
+            SELECT
+            (item.Total ) - (item.NPD1 ) - (item.NPD2 ) sow,
+            (item.NPD ) - (item.NPD1 ) - (item.NPD2 ) tnpd,
+            cast((item.NPD ) - (item.NPD1 ) - (item.NPD2 ) as decimal) /cast((item.Total ) - (item.NPD1 ) - (item.NPD2 ) as
+            decimal) *365 npdYear
+            ,*
+            FROM
+            V_ProductionEfficiency_NPD_SummaryDate item
+            WHERE item.Total != 0
+            and item.Total  - item.NPD1  - item.NPD2  != 0
+            <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+                and item.Date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+            </if>
+            <if test="indicatorsDto.farmId !=null">
+                AND item.FarmID =#{indicatorsDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and item.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            <if test="indicatorsDto.organId != null">
+                <choose>
+                    <when test="indicatorsDto.organId == 10000">
+                        AND item.FarmID in(
+                        <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND item.FarmID in(
+                        SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                        )
+                    </otherwise>
+                </choose>
+            </if>
+        )a
+    </select>
+
+    <select id="findLsyNpb" resultType="double">
+            SELECT
+                cast(sum(item.PD9)* 365 as decimal) /cast( sum( (item.Total ) - (item.NPD1 ) - (item.NPD2 )) *115 as decimal)
+            FROM
+                V_ProductionEfficiency_NPD_SummaryDate AS item
+            WHERE item.Total != 0
+            <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+                and item.Date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+            </if>
+            <if test="indicatorsDto.farmId !=null">
+                AND item.FarmID =#{indicatorsDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and item.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            <if test="indicatorsDto.organId != null">
+                <choose>
+                    <when test="indicatorsDto.organId == 10000">
+                        AND item.FarmID in(
+                        <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND item.FarmID in(
+                        SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                        )
+                    </otherwise>
+                </choose>
+            </if>
+    </select>
+
+    <select id="findPigSale" resultType="double">
+        SELECT
+            sum( SaleQty ) as value
+        FROM
+            V_PigSale
+        WHERE SaleTypeDetail != '保育'
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and Date BETWEEN #{indicatorsDto.beginDate} and #{indicatorsDto.endDate}
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+	</select>
+
+    <select id="findTjq" resultType="map">
+        SELECT
+        cast(count(*) as float ) as tjq,
+        avg( cast( ISNULL( t.SowCount, 0 ) AS float ) ) as pjcl
+        FROM
+        V_ProductionEfficiency_Inventory AS t
+        WHERE
+        1=1
+        <if test="indicatorsDto.beginDate != null and indicatorsDto.endDate != null">
+            and Date BETWEEN dateadd(day,-116,#{indicatorsDto.beginDate}) and dateadd(day,-116,#{indicatorsDto.endDate})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            AND FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+    </select>
+</mapper>

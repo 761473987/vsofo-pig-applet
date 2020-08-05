@@ -1,0 +1,93 @@
+server:
+  port: 7008
+  #tomcat
+  tomcat:
+    max-threads: 200
+    accesslog:
+      enabled: true
+      file-date-format: yyyy-MM-dd
+mybatis-plus:
+  configuration:
+    call-setters-on-nulls: true
+    map-underscore-to-camel-case: false
+
+wx:
+  appId: wxee0a6c39b32b3c77
+  appSecret: 7787f46fa5955e26b89afcd10969cc37
+  getUrl: https://api.weixin.qq.com/sns/jscode2session
+
+#jasypt加密的密匙
+jasypt:
+  encryptor:
+    password: EbfYkitulv73I2p0mXI50JMXoaxZTKJ7
+
+spring:
+  cache:
+    caffeine:
+      spec: maximumSize=500, expireAfterAccess=30s
+  datasource:
+    dynamic:
+      primary: applet #设置默认的数据源或者数据源组,默认值即为master
+      strict: false #设置严格模式,默认false不启动. 启动后在未匹配到指定数据源会时候回抛出异常,不启动使用默认数据源.
+      datasource:
+        master:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://10.0.0.51;DatabaseName=PIGFARM
+          username: QuerUser
+          password: ENC(gPc8Oy9OIfk+2UBSEDRNJI6o/SSoAAHpaCBIXVO6/8Q=)
+          min-evictable-idle-time-millis: 1800000 #连接池空闲连接的有效时间 ，设置30分钟
+          initial-size: 5
+          max-active: 10
+          max-wait: 60000
+          min-idle: 5
+
+        slave_1:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://10.0.0.51;DatabaseName=PigFarm_Log
+          username: QuerUser
+          password: ENC(gPc8Oy9OIfk+2UBSEDRNJI6o/SSoAAHpaCBIXVO6/8Q=)
+          min-evictable-idle-time-millis: 1800000 #连接池空闲连接的有效时间 ，设置30分钟
+          initial-size: 5
+          max-active: 10
+          max-wait: 60000
+          min-idle: 5
+
+        slave_2:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://10.0.0.51;DatabaseName=EFS_JXN
+          username: AppUser
+          password: ENC(E7TNjOSDZyn9F2QCOsF4cuhDGZw6V/kqsMJpuN3Gwdo=)
+          min-evictable-idle-time-millis: 1800000 #连接池空闲连接的有效时间 ，设置30分钟
+          initial-size: 5
+          max-active: 10
+          max-wait: 60000
+          min-idle: 5
+
+        applet:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://10.0.0.51;Databasename=PIGFARM_Stat
+          username: QuerUser
+          password: ENC(gPc8Oy9OIfk+2UBSEDRNJI6o/SSoAAHpaCBIXVO6/8Q=)
+          min-evictable-idle-time-millis: 1800000 #连接池空闲连接的有效时间 ，设置30分钟
+          initial-size: 5
+          max-active: 10
+          max-wait: 60000
+          min-idle: 5
+
+        jzz:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://121.201.72.229:1433;Databasename=PigMGT_Stat
+          username: vsofodkf
+          password: Dingkefeng!@#035421
+          min-evictable-idle-time-millis: 1800000 #连接池空闲连接的有效时间 ，设置30分钟
+          initial-size: 5
+          max-active: 10
+          max-wait: 60000
+          min-idle: 5
+  main:
+    allow-bean-definition-overriding: true
+#日志打印
+logging:
+  path: D:/Users/log/level
+  level:
+    com.vsofo.applet.pigfarmstat.mapper: debug

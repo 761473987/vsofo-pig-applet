@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.JzzPigInvoicingStatStatDayMapper">
+    <insert id="batchInsert" parameterType="com.vsofo.applet.pigfarmstat.pojo.JzzPigInvoicingStatStatDay">
+        <foreach collection="list" item="item" separator=";">
+            INSERT INTO JZZ_Pig_InvoicingStat_StatDay(
+            [FarmID]
+            ,[PigTypeID]
+            ,[PigVarietyID]
+            ,[JZZ_FarmID]
+            ,[JZZ_FarmName]
+            ,[JZZ_LineID]
+            ,[JZZ_PigTypeID]
+            ,[JZZ_TypeName]
+            ,[JZZ_PigVarietyID]
+            ,[JZZ_VarietyName]
+            ,[StockNum]
+            ,[StatDate]
+            ,[EnterInNum]
+            ,[ChangeHouseInNum]
+            ,[ChangeHouseOutNum]
+            ,[TransferInNum]
+            ,[TransferOutNum]
+            ,[ChangeTypeInNum]
+            ,[ChangeTypeOutNum]
+            ,[RevisionInNum]
+            ,[RevisionOutNum]
+            ,[SaleOutNum]
+            ,[EliminateOutNum]
+            ,[DeathOutNum]
+            ,[DeleteOutNum]
+            ,[OldStockNum]
+            )values (
+            #{item.farmId},
+            #{item.pigTypeId},
+            #{item.pigVarietyId},
+            #{item.jzzFarmId},
+            #{item.jzzFarmName},
+            #{item.jzzLineId},
+            #{item.jzzPigTypeId},
+            #{item.jzzTypeName},
+            #{item.jzzPigVarietyId},
+            #{item.jzzVarietyName},
+            #{item.stockNum},
+            #{item.statDate},
+            #{item.enterInNum},
+            #{item.changeHouseInNum},
+            #{item.changeHouseOutNum},
+            #{item.transferInNum},
+            #{item.transferOutNum},
+            #{item.changeTypeInNum},
+            #{item.changeTypeOutNum},
+            #{item.revisionInNum},
+            #{item.revisionOutNum},
+            #{item.saleOutNum},
+            #{item.eliminateOutNum},
+            #{item.deathOutNum},
+            #{item.deleteOutNum},
+            #{item.oldStockNum}
+            )
+        </foreach>
+
+    </insert>
+</mapper>

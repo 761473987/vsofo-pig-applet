@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vsofo.authentication.mapper.UserUpdateMapper">
+
+    <update id="updateUserPassword">
+        UPDATE PIGFARM.dbo.WeChat_User
+        <set>
+            <if test="password != null">
+                Password = #{password},shouldChangePasswordOnNextLogin = 0
+            </if>
+        </set>
+        WHERE 1=1
+        <if test="loginName != null">
+            and loginName = #{loginName}
+        </if>
+    </update>
+
+    <select id="getPasswordInLoginName" resultType="integer">
+        SELECT COUNT(1) FROM PIGFARM.dbo.WeChat_User  WITH(NOLOCK)  WHERE Password=#{password} and LoginName=#{loginName}
+    </select>
+
+
+    <select id="getPasswordSalt" resultType="string">
+       SELECT passwordSalt FROM PIGFARM.dbo.WeChat_User WHERE LoginName=#{username}
+    </select>
+</mapper>

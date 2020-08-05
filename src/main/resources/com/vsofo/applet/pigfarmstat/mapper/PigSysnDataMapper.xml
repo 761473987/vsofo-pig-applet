@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.PigSysnDataMapper">
+    <insert id="pigInventoryDailySysn" >
+        INSERT INTO [dbo].[WeChat_PigInventory_Daily] ( [FarmID], [PigType], [PigTypeName], [ProductionStatusID], [ProductionStatusName], [PigAmount], [PigSuch], [Date],[SysnDate] )
+        SELECT
+            FarmID,
+            PigType,
+            PigTypeName,
+            ProductionStatusID,
+            ProductionStatusName,
+            SUM ( PigCountEnd ) AS PigAmount,
+            SUM ( PigSale ) AS PigSuch,
+            CONVERT ( VARCHAR ( 10 ), DATE, 120 ) AS DATE,
+            '${sysnDate}' as SysnDate
+        FROM
+            V_PigInventory
+            WHERE DateDiff(dd,DATE,getDate() ) = 0
+        GROUP BY
+            FarmID,
+            PigType,
+            PigTypeName,
+            ProductionStatusID,
+            ProductionStatusName,
+            CONVERT ( VARCHAR ( 10 ), DATE, 120 )
+    </insert>
+
+    <insert id="pigInventoryMonthSysn" parameterType="date">
+        INSERT INTO [dbo].[WeChat_PigInventory_Month]( [FarmID], [PigType], [PigTypeName], [ProductionStatusID], [ProductionStatusName], [PigAmount], [PigSuch], [Year], [Month],[SysnDate])
+        SELECT
+        FarmID,PigType,PigTypeName,ProductionStatusID,ProductionStatusName,SUM(PigAmount) as PigAmount , SUM(PigSuch) as PigSuch , year(Date) as Year,Month(Date) as Month,'${sysnDate}' as SysnDate FROM [dbo].[WeChat_PigInventory_Daily]
+        WHERE year(Date) = year(getDate()) and Month(date) = Month(getDate())
+        GROUP BY
+        FarmID,PigType,PigTypeName,ProductionStatusID,ProductionStatusName,year(Date),Month(Date)
+    </insert>
+
+    <delete id="emptyTodayData">
+        DELETE FROM WeChat_PigInventory_Daily WHERE DateDiff( dd, Date, getDate()) = 0
+    </delete>
+
+    <delete id="emptyToMonthData">
+        DELETE FROM WeChat_PigInventory_Month WHERE Year = year(getDate()) and Month = Month(getDate())
+    </delete>
+
+    <select id="findFybXs" resultType="com.vsofo.applet.pigfarmstat.dto.pigSysn.FybDto">
+        	SELECT CONVERT
+                ( VARCHAR ( 100 ), SaleDate, 112 ) AS Date,
+                D.DepartmentID ,
+                D.DepartmentName,
+                B.PigType,
+                SUM ( Quantity ) AS VALUE,
+                1 as DataType
+            FROM
+                dbo.V_FMS_Department D
+                INNER JOIN dbo.V_FMS_Employee E ON E.DepartmentID = D.DepartmentID
+                INNER JOIN dbo.V_FMS_Batch B ON B.EmployeeID = E.EmployeeID
+                INNER JOIN dbo.V_FMS_PigSale PS ON B.BatchID = PS.BatchID
+                WHERE PS.IsDeleted = 0
+                and PS.IsRecoil IS NULL
+                and DateDiff( dd, SaleDate, #{date} ) = 0
+                and D.ParentID = #{departmentID}
+            GROUP BY
+                CONVERT ( VARCHAR ( 100 ), SaleDate, 112 ),
+                D.DepartmentID,
+                D.DepartmentName,
+                B.PigType
+                UNION all
+            SELECT CONVERT
+                ( VARCHAR ( 100 ), DeliveryDate, 112 ) AS Date,
+                D.DepartmentID,
+                D.DepartmentName,
+                '1' AS PigType,
+                ISNULL( SUM( Quantity ), 0 ) AS VALUE,
+                2 as DataType
+            FROM
+                dbo.V_FMS_Department D
+                INNER JOIN dbo.V_FMS_Farmer F ON F.DepartmentID = D.DepartmentID
+                INNER JOIN dbo.V_FMS_PigDelivery PS ON F.FarmerID = PS.FarmerID
+            WHERE
+                PS.IsDeleted = 0
+                AND PS.DeliveryState = 1
+                and DateDiff( dd, DeliveryDate, #{date} ) = 0
+                and D.ParentID = #{departmentID}
+            GROUP BY
+                CONVERT ( VARCHAR ( 100 ), DeliveryDate, 112 ),
+                D.DepartmentID,
+                D.DepartmentName
+            UNION all
+        SELECT CONVERT
+            ( VARCHAR ( 100 ), DeathDate, 112 ) AS Date,
+            D.DepartmentID,
+            D.DepartmentName,
+            B.PigType,
+            ISNULL( SUM( DeathQuantity ), 0 ) AS VALUE,
+            3 as DataType
+        FROM
+            dbo.V_FMS_Department D
+            LEFT JOIN dbo.V_FMS_Employee E ON E.DepartmentID = D.DepartmentID
+            LEFT JOIN dbo.V_FMS_Batch B ON B.EmployeeID = E.EmployeeID
+            LEFT JOIN dbo.V_FMS_PigDeath PS ON B.BatchID = PS.BatchID
+        WHERE
+            PS.IsDeleted = 0
+            and PS.IsRecoil IS NULL
+            and PS.DocState = 1
+            and DateDiff( dd, DeathDate, #{date} ) = 0
+            and D.ParentID = #{departmentID}
+        GROUP BY
+            CONVERT ( VARCHAR ( 100 ), DeathDate, 112 ),
+            D.DepartmentID,
+            D.DepartmentName,
+            B.PigType
+        UNION all
+        SELECT MONTH
+            ( BatchDate ) AS Date,
+            D.DepartmentID,
+            D.DepartmentName,
+            B.PigType,
+            ISNULL( SUM( BatchQuantity ), 0 ) AS value,
+            5 as dataType
+        FROM
+            dbo.V_FMS_Department D
+            INNER JOIN dbo.V_FMS_Employee E ON E.DepartmentID = D.DepartmentID
+            INNER JOIN dbo.V_FMS_Batch B ON B.EmployeeID = E.EmployeeID
+            INNER JOIN dbo.V_FMS_BatchMonth PS ON B.BatchID = PS.BatchID
+            where DateDiff( dd, BatchDate, #{date} ) = 0
+            and D.ParentID = #{departmentID}
+        GROUP BY
+            MONTH ( BatchDate ),
+            D.DepartmentID,
+            D.DepartmentName,
+            B.PigType
+    </select>
+
+
+
+
+
+</mapper>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.CostMapper">
+	<!--按阶段查找成本-->
+	<sql id="selectByStage">
+	  SELECT
+		SUM(ISNULL(BoarCosts, 0)) AS  分摊公猪成本 ,
+		SUM(ISNULL(SowCosts ,0)) AS  分摊母猪成本 ,
+		SUM(ISNULL(LactationStage ,0)) AS  哺乳阶段 ,
+		SUM(ISNULL(ConservationStage ,0)) AS  保育阶段 ,
+		SUM(ISNULL(CultivationStage ,0) ) AS  培育阶段 ,
+		SUM(ISNULL(FatteningStage ,0)) AS  育肥阶段 ,
+		SUM(ISNULL(NurseryStage ,0)) AS  托养阶段 ,
+		SUM(ISNULL(BackupStage ,0)) AS  后备阶段
+	  FROM
+	    Pigfram_Stat_Cost_stage t
+	</sql>
+	<!--按项目查找成本-->
+	<sql id="selectBySubject">
+		SELECT
+	      ISNULL(sum (Fodder),0) AS 饲料,
+		  ISNULL(sum (Drug),0) AS 药品,
+		  ISNULL(sum (Semen),0) AS 精液,
+		  ISNULL(sum (StaffSalary),0) AS '人员工资、奖金、福利',
+		  ISNULL(sum (Other),0) AS 其他,
+		  ISNULL(sum (DepreciationOfFixedAssets),0) AS 固定资产折旧,
+		  ISNULL(sum (MaintenanceFees),0) AS 维修费,
+		  ISNULL(sum (EnergyCosts),0) AS 能耗费用,
+		  ISNULL(sum (LowValueConsumables),0) AS 低值易耗品费用,
+		  ISNULL(sum (PurchasedPiglets),0) AS 外购猪苗
+        FROM
+	      Pigfram_Stat_Cost t
+	</sql>
+    <select id="findCoastByPeriod" resultType="map">
+		<choose>
+		<when test="viewType == 2">
+			<include refid="selectByStage"></include>
+		</when>
+		<otherwise>
+			<include refid="selectBySubject"></include>
+		</otherwise>
+		</choose>
+	    WHERE
+		<include refid="whereCondition"></include>
+    </select>
+	<!--按月查找成本-->
+	<select id="findByMonth" resultType="com.vsofo.applet.pigfarmstat.vo.cost.LineChartVo">
+		SELECT
+			Month AS month,
+			SUM(Fodder)
+			+ SUM(Drug)
+			+ SUM(Semen)
+			+ SUM(StaffSalary)
+			+ SUM(Other)
+			+ SUM(DepreciationOfFixedAssets)
+			+ SUM(MaintenanceFees)
+			+ SUM(EnergyCosts)
+			+ SUM(LowValueConsumables)
+			+ SUM(PurchasedPiglets)
+			AS value
+		FROM
+			dbo.Pigfram_Stat_Cost t
+		WHERE
+		<include refid="whereCondition"></include>
+		GROUP BY
+			Period,Month
+	</select>
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+    <sql id="whereCondition">
+        t.Year = #{monthlySearchDto.year}
+        AND t.Month IN
+        <foreach collection="yearAndMonth.split(',')" open="(" separator="," close=")" item="item">
+            #{item}
+        </foreach>
+        <if test="monthlySearchDto != null and monthlySearchDto.farmId != null and monthlySearchDto.farmId != -1">
+            AND t.FarmID = #{monthlySearchDto.farmId}
+        </if>
+        <if test="monthlySearchDto != null and monthlySearchDto.organId != null and monthlySearchDto.farmId != -1">
+            <choose>
+                <when test="monthlySearchDto.organId == 10000">
+                    AND t.FarmID IN (SELECT FarmID FROM PIGFARM.dbo.V_Farms WHERE OrganID NOT IN
+                    (SELECT WxOrganId FROM PIGFARM.dbo.WeChat_Organ))
+                </when>
+                <otherwise>
+                    AND t.FarmID IN (SELECT FarmID FROM PIGFARM.dbo.V_Farms WHERE OrganID IN
+                    (SELECT WxOrganId FROM PIGFARM.dbo.WeChat_Organ WHERE WxOrganId = #{monthlySearchDto.organId}))
+                </otherwise>
+            </choose>
+        </if>
+        <if test="user != null and user.roleId == 3">
+            AND t.FarmID IN (<include refid="getFarmIds"></include>)
+        </if>
+    </sql>
+</mapper>

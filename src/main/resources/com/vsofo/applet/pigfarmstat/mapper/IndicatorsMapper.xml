@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.IndicatorsMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+
+    <select id="findIndicatorsDo" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.IndicatorsDo">
+        SELECT
+            MONTH,
+            Convert(decimal(18,2),avg( Reality )) AS reality,
+            DataType
+        FROM
+            V_ProductionEfficiency_Month
+        WHERE
+            "year" = #{indicatorsDto.year}
+            <if test="indicatorsDto.organId != null and indicatorsDto.organId != -1">
+                <choose>
+                    <when test="indicatorsDto.organID == 10000">
+                        AND FarmID IN (<include refid="cooperation"></include>)
+                    </when>
+                    <otherwise>
+                        AND FarmID IN ( SELECT FarmID FROM V_Farms WHERE OrganID = #{indicatorsDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="indicatorsDto.farmId != null">
+                AND FarmID = #{indicatorsDto.farmId}
+            </if>
+            and Reality != 0
+            AND dataType in ('40','82','53','23','65','49')
+        GROUP BY
+            MONTH,dataType
+    </select>
+
+    <select id="getMenuByOrganIdByTime" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT DT.name as DataTypeName, ISNULL(reality,0) as reality  FROM WeCat_DataType DT LEFT JOIN (
+            SELECT Convert(decimal(18,2),avg ( Reality )) AS reality, DataType FROM V_ProductionEfficiency_Month
+            where
+            YEAR = #{indicatorsDto.year}
+            AND MONTH = #{indicatorsDto.statMonth}
+            <if test="indicatorsDto.organId != null and indicatorsDto.organId != -1">
+                <choose>
+                    <when test="indicatorsDto.organID == 10000">
+                        AND FarmID IN (<include refid="cooperation"></include>)
+                    </when>
+                    <otherwise>
+                        AND FarmID IN ( SELECT farmID FROM V_Farms WHERE OrganID = #{indicatorsDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="indicatorsDto.farmId != null">
+                AND FarmID = #{indicatorsDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            and reality != 0
+        GROUP BY DataType ) T
+             ON DT.Code = T.DataType WHERE DT.code in ('40','82','53','23','65','49')
+    </select>
+
+    <select id="findDataType" resultType="map">
+        SELECT top 1 DataType,DataTypeName FROM [dbo].[V_ProductionEfficiency] where DataTypeName = #{dataTypeName}
+    </select>
+
+
+    <select id="findIndicatorsDetail" resultType="com.vsofo.applet.pigfarmstat.vo.indicators.IndDetailVo">
+        SELECT
+            DT.NAME as DataTypeName,
+            Convert(decimal(18,2),ISNULL( avg( P.Reality ), 0 )) AS Reality,
+            Convert(decimal(18,2),ISNULL( avg( P.Target ), 0 )) AS Target
+        FROM
+            WeCat_DataType DT
+            LEFT JOIN V_ProductionEfficiency_Month P ON DT.CODE = P.DataType
+            AND YEAR = #{indicatorsDto.year}
+            AND MONTH = #{indicatorsDto.statMonth}
+            <if test="indicatorsDto.organId != null and indicatorsDto.organId != -1">
+                <choose>
+                    <when test="indicatorsDto.organID == 10000">
+                        AND farmId IN (<include refid="cooperation"></include>)
+                    </when>
+                    <otherwise>
+                        AND farmId IN ( SELECT farmID FROM V_Farms WHERE OrganID = #{indicatorsDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+        WHERE
+            DT.GroupId = #{groupId}
+            AND DT.CallType = '2'
+        GROUP BY
+            DT.NAME
+            union
+        SELECT
+            DT.NAME as DataTypeName,
+            Convert(decimal(18,2),ISNULL( sum( P.Reality ), 0 )) AS Reality,
+            Convert(decimal(18,2),ISNULL( sum( P.Target ), 0 )) AS Target
+        FROM
+            WeCat_DataType DT
+            LEFT JOIN V_ProductionEfficiency_Month P ON DT.CODE = P.DataType
+            AND YEAR = #{indicatorsDto.year}
+            AND MONTH = #{indicatorsDto.statMonth}
+            <if test="indicatorsDto.organId != null ">
+                <choose>
+                    <when test="indicatorsDto.organID == 10000">
+                        AND farmId IN (<include refid="cooperation"></include>)
+                    </when>
+                    <otherwise>
+                        AND farmId IN ( SELECT farmID FROM V_Farms WHERE OrganID = #{indicatorsDto.organId} )
+                    </otherwise>
+                </choose>
+            </if>
+        WHERE
+            DT.GroupId = #{groupId}
+            AND DT.CallType = '1'
+        GROUP BY
+            DT.NAME
+    </select>
+
+    <select id="findIndicatorsDetailOfWeek" resultType="com.vsofo.applet.pigfarmstat.vo.indicators.IndDetailVo">
+        SELECT
+        DT.NAME as DataTypeName,
+        Convert(decimal(18,2),ISNULL( avg( P.Reality ), 0 )) AS Reality,
+        Convert(decimal(18,2),ISNULL( avg( P.Target ), 0 )) AS Target
+        FROM
+        WeCat_DataType DT
+        LEFT JOIN V_ProductionEfficiency_Week P ON DT.CODE = P.DataType
+        AND Week = #{indicatorsDto.week}
+        <if test="indicatorsDto.organId != null and indicatorsDto.organId != -1">
+            <choose>
+                <when test="indicatorsDto.organID == 10000">
+                    AND farmId IN (<include refid="cooperation"></include>)
+                </when>
+                <otherwise>
+                    AND farmId IN ( SELECT farmID FROM V_Farms WHERE OrganID = #{indicatorsDto.organId} )
+                </otherwise>
+            </choose>
+        </if>
+        WHERE
+        DT.GroupId = #{groupId}
+        AND DT.CallType = '2'
+        GROUP BY
+        DT.NAME
+        union
+        SELECT
+        DT.NAME as DataTypeName,
+        Convert(decimal(18,2),ISNULL( sum( P.Reality ), 0 )) AS Reality,
+        Convert(decimal(18,2),ISNULL( sum( P.Target ), 0 )) AS Target
+        FROM
+        WeCat_DataType DT
+        LEFT JOIN V_ProductionEfficiency_Week P ON DT.CODE = P.DataType
+        AND Week = #{indicatorsDto.week}
+        <if test="indicatorsDto.organId != null ">
+            <choose>
+                <when test="indicatorsDto.organID == 10000">
+                    AND farmId IN (<include refid="cooperation"></include>)
+                </when>
+                <otherwise>
+                    AND farmId IN ( SELECT farmID FROM V_Farms WHERE OrganID = #{indicatorsDto.organId} )
+                </otherwise>
+            </choose>
+        </if>
+        WHERE
+        DT.GroupId = #{groupId}
+        AND DT.CallType = '1'
+        GROUP BY
+        DT.NAME
+    </select>
+
+<!--    <select id="findIndicatorsDetail1">-->
+<!--        -->
+<!--    </select>-->
+</mapper>

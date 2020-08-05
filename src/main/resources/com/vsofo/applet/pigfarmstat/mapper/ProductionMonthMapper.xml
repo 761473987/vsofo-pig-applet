@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.ProductionMonthMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+
+    <select id="avgAmount" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT P.DataType,ISNULL(AVG(P.Reality),0) as Reality
+        FROM PIGFARM_Stat.dbo.V_ProductionEfficiency_Month P
+        INNER JOIN V_Farms F ON F.FarmID = P.FarmID and F.IsDeleted = 0 and F.BreedingType = 1
+        where 1=1
+        <if test="indicatorsDto.month != null">
+            and P.[Month]=#{indicatorsDto.month}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and P.[Year]=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY P.DataType
+    </select>
+
+    <select id="avgAmountBetweenMonth" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.IndicatorsDo">
+        SELECT P.Month,P.DataType,ISNULL(AVG(P.Reality),0) as Reality
+        FROM PIGFARM_Stat.dbo.V_ProductionEfficiency_Month P
+        INNER JOIN V_Farms F ON F.FarmID = P.FarmID and F.IsDeleted = 0 and F.BreedingType = 1
+        where 1=1
+        <if test="indicatorsDto.statMonth != null">
+            and P.[Month] &gt;= #{indicatorsDto.statMonth}
+        </if>
+        <if test="indicatorsDto.endMonth != null">
+            and P.[Month] &lt;= #{indicatorsDto.endMonth}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and P.[Year]=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY P.DataType,P.Month
+    </select>
+
+    <select id="totalAmountBetweenMonth" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.IndicatorsDo">
+        SELECT
+        Month,
+        P.DataType,
+        ISNULL(SUM ( P.reality ),0) as Reality
+        FROM
+        PIGFARM_Stat.dbo.V_ProductionEfficiency_Month P
+        INNER JOIN V_Farms F ON F.FarmID = P.FarmID and F.IsDeleted = 0 and F.BreedingType = 1
+        WHERE 1=1
+        <if test="indicatorsDto.statMonth != null">
+            and P.[Month] &gt;= #{indicatorsDto.statMonth}
+        </if>
+        <if test="indicatorsDto.endMonth != null">
+            and P.[Month] &lt;= #{indicatorsDto.endMonth}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and P.[Year]=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY P.DataType,P.month
+    </select>
+
+
+    <select id="totalAmount" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT
+        P.DataType,
+        ISNULL(SUM ( P.reality ),0) as Reality
+        FROM
+        PIGFARM_Stat.dbo.V_ProductionEfficiency_Month P
+        INNER JOIN V_Farms F ON F.FarmID = P.FarmID and F.IsDeleted = 0 and F.BreedingType = 1
+        WHERE 1=1
+        <if test="indicatorsDto.month != null">
+            and P.[Month]=#{indicatorsDto.month}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and P.[Year]=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and P.FarmID =#{indicatorsDto.farmId}
+        </if>
+        GROUP BY P.DataType
+    </select>
+
+    <select id="totalAmountPolyline" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT
+        DataType,month,
+        ISNULL(SUM ( reality ),0) as Reality
+        FROM
+        PIGFARM_Stat.dbo.V_ProductionEfficiency_Month
+        WHERE 1=1
+        <if test="indicatorsDto.statMonth != null">
+            and [Month] &lt;= #{indicatorsDto.statMonth}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and [Year]=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY DataType,month
+    </select>
+
+    <select id="avgAmountPolyline" resultType="com.vsofo.applet.pigfarmstat.pojo.Production">
+        SELECT
+        DataType,month,
+        ISNULL(AVG ( reality ),0) as Reality
+        FROM
+        PIGFARM_Stat.dbo.V_ProductionEfficiency_Month
+        WHERE 1=1
+        <if test="indicatorsDto.statMonth != null">
+            and [Month] &lt;= #{indicatorsDto.statMonth}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and [Year]=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and P.FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY DataType,month
+    </select>
+
+    <select id="findNpdBetweenMonth" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.NpdMonthDo">
+        SELECT
+        month,
+        CASE
+            WHEN MONTH(GETDATE()) = month
+            THEN SUM(avgNPD) / (DATENAME(day,GETDATE())-1)
+            ELSE SUM(avgNPD) / 30
+        END as Value
+        FROM (
+            SELECT
+                month(Date) as month , (NPD / CAST(Total as float)) * 365 as avgNPD
+            FROM V_ProductionEfficiency_NPD_SummaryDate
+            WHERE NPD != 0 AND Total != 0
+        <if test="indicatorsDto.year != null">
+            and Year(Date)=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.statMonth != null">
+            AND MONTH(Date) &gt;=  #{indicatorsDto.statMonth}
+        </if>
+        <if test="indicatorsDto.endMonth != null">
+            AND MONTH(Date) &lt;= #{indicatorsDto.endMonth}
+        </if>
+        <if test="indicatorsDto.organId != null">
+            <choose>
+                <when test="indicatorsDto.organId == 10000">
+                    AND FarmID in(
+                    <include refid="cooperation"></include>
+                    )
+                </when>
+                <otherwise>
+                    AND FarmID in(
+                    SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                    )
+                </otherwise>
+            </choose>
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        ) TT GROUP BY month
+    </select>
+
+    <select id="findGestationDayNum" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.MonthValueDo">
+            SELECT
+                MONTH( ped.DeliveryDate ) AS MONTH,
+                AVG ( CAST ( DATEDIFF( DAY, MatingDate, DeliveryDate ) AS DECIMAL ) ) AS value
+            FROM
+                V_ProductionEfficiency_Delivery ped
+                INNER JOIN V_Farms f ON ped.FarmID = f.FarmID
+            WHERE
+                    DeliveryDate IS NOT NULL
+                <if test="indicatorsDto.year != null">
+                   AND YEAR ( ped.DeliveryDate )=#{indicatorsDto.year}
+                </if>
+                <if test="indicatorsDto.statMonth != null">
+                    AND MONTH(DeliveryDate) &gt;=  #{indicatorsDto.statMonth}
+                </if>
+                <if test="indicatorsDto.endMonth != null">
+                    AND MONTH(DeliveryDate) &lt;= #{indicatorsDto.endMonth}
+                </if>
+                <if test="indicatorsDto.farmId !=null">
+                    AND f.FarmID =#{indicatorsDto.farmId}
+                </if>
+                <if test="user != null and user.roleId == 3">
+                    and f.FarmID in (<include refid="getFarmIds"></include>)
+                </if>
+                <if test="indicatorsDto.organId != null">
+                    <choose>
+                        <when test="indicatorsDto.organId == 10000">
+                            AND f.FarmID in(
+                            <include refid="cooperation"></include>
+                            )
+                        </when>
+                        <otherwise>
+                            AND f.FarmID in(
+                            SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                            )
+                        </otherwise>
+                    </choose>
+                </if>
+            GROUP BY
+                MONTH (ped.DeliveryDate)
+    </select>
+
+    <select id="findLactationDayNum" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.MonthValueDo">
+       SELECT
+            MONTH( ped.WeaningDate ) AS MONTH,
+            ISNULL( AVG ( CAST ( DATEDIFF( DAY, ped.DeliveryDate, ped.WeaningDate ) AS DECIMAL )), 0 ) as value
+        FROM
+            V_ProductionEfficiency_Delivery AS ped
+            INNER JOIN V_Farms AS f ON ped.FarmID = f.FarmID
+        WHERE
+            1 = 1
+            <if test="indicatorsDto.year != null">
+                AND YEAR ( WeaningDate )=#{indicatorsDto.year}
+            </if>
+            <if test="indicatorsDto.statMonth != null">
+                AND MONTH(WeaningDate) &gt;=  #{indicatorsDto.statMonth}
+            </if>
+            <if test="indicatorsDto.endMonth != null">
+                AND MONTH(WeaningDate) &lt;= #{indicatorsDto.endMonth}
+            </if>
+            <if test="indicatorsDto.farmId !=null">
+                AND f.FarmID =#{indicatorsDto.farmId}
+            </if>
+            <if test="user != null and user.roleId == 3">
+                and f.FarmID in (<include refid="getFarmIds"></include>)
+            </if>
+            <if test="indicatorsDto.organId != null">
+                <choose>
+                    <when test="indicatorsDto.organId == 10000">
+                        AND f.FarmID in(
+                            <include refid="cooperation"></include>
+                        )
+                    </when>
+                    <otherwise>
+                        AND f.FarmID in(
+                            SELECT FarmID FROM [dbo].[V_Farms] WHERE OrganID = #{indicatorsDto.organId}
+                        )
+                    </otherwise>
+                </choose>
+            </if>
+            AND WeaningDate IS NOT NULL
+        GROUP BY
+            MONTH (ped.WeaningDate)
+    </select>
+
+    <select id="avgAmountDay" resultType="com.vsofo.applet.pigfarmstat.dos.indicators.IndicatorsDo">
+        SELECT
+        MONTH (DATE) as month,
+        DataType,
+        ISNULL(AVG(cast(value as decimal)),0) as Reality
+        FROM V_ProductionEfficiency
+        where 1=1
+        and DataType in(67,68)
+        <if test="indicatorsDto.month != null">
+            and month(date)=#{indicatorsDto.month}
+        </if>
+        <if test="indicatorsDto.year != null">
+            and year(date)=#{indicatorsDto.year}
+        </if>
+        <if test="indicatorsDto.organId !=null">
+            and FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+        </if>
+        <if test="indicatorsDto.farmId !=null">
+            and FarmID =#{indicatorsDto.farmId}
+        </if>
+        <if test="user != null and user.roleId == 3">
+            and FarmID in (<include refid="getFarmIds"></include>)
+        </if>
+        GROUP BY DataType,MONTH (DATE)
+    </select>
+
+    <select id="getDataType" resultType="com.vsofo.applet.pigfarmstat.pojo.DataType">
+        SELECT DataType , DataTypeName FROM [dbo].[V_ProductionEfficiency_Month] GROUP BY DataType,DataTypeName
+    </select>
+
+    <select id="orderByIndicators" resultType="com.vsofo.applet.pigfarmstat.vo.DoubleKV">
+        	SELECT top 3  P.FarmName as k ,P.Reality as v FROM WeChat_ProductionEfficiency_Month P
+            WHERE
+                Reality != 0
+                <if test="indicatorsDto.organId !=null">
+                    and P.FarmID IN (SELECT FarmID FROM PIGFARM_Stat.dbo.V_Farms  WHERE OrganID = #{indicatorsDto.organId})
+                </if>
+                <if test="indicatorsDto.month != null">
+                    and month(date)=#{indicatorsDto.month}
+                </if>
+                <if test="indicatorsDto.year != null">
+                    and year(date)=#{indicatorsDto.year}
+                </if>
+                <if test="dataType != null">
+                    and DataType = #{dataType}
+                </if>
+                <if test="orderType == 1">
+                    ORDER BY Reality
+                </if>
+                <if test="orderType == 2">
+                    ORDER BY Reality desc
+                </if>
+    </select>
+
+</mapper>

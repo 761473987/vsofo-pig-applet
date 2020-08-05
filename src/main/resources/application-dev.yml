@@ -1,0 +1,80 @@
+server:
+  port: 7008
+  #tomcat
+  tomcat:
+    max-threads: 200
+    accesslog:
+      enabled: true
+      file-date-format: yyyy-MM-dd
+mybatis-plus:
+#  mapper-locations:
+#    - classpath:/com/vsofo/applet/pigfarmstat/mapper/*.xml
+  configuration:
+    call-setters-on-nulls: true
+    map-underscore-to-camel-case: false
+
+wx:
+  appId: wxee0a6c39b32b3c77
+  appSecret: 7787f46fa5955e26b89afcd10969cc37
+  getUrl: https://api.weixin.qq.com/sns/jscode2session
+
+spring:
+  cache:
+    caffeine:
+      spec: maximumSize=500, expireAfterAccess=30s
+  datasource:
+    dynamic:
+      primary: applet #设置默认的数据源或者数据源组,默认值即为master
+      strict: false #设置严格模式,默认false不启动. 启动后在未匹配到指定数据源会时候回抛出异常,不启动使用默认数据源.
+      datasource:
+        auth:
+          #driver-class-name: com.p6spy.engine.spy.P6SpyDriver  日志打印
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          #url: jdbc:p6spy:sqlserver://192.168.0.235:1433;DatabaseName=PIGFARM 日志打印
+          url: jdbc:sqlserver://192.168.0.126:1433;DatabaseName=PIGFARM
+          username: sa
+          password: Vsofo126!!!*
+
+        slave_1:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://192.168.0.126:1433;DatabaseName=PigFarm_Log
+          username: sa
+          password: Vsofo126!!!*
+
+        slave_2:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://192.168.0.126:1433;DatabaseName=PIGFARM
+          username: sa
+          password: Vsofo126!!!*
+
+        applet:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://192.168.0.126:1433;Databasename=PIGFARM_Stat
+          username: sa
+          password: Vsofo126!!!*
+
+        jzz:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://121.201.72.229:1433;Databasename=PigMGT_Stat
+          username: vsofodkf
+          password: Dingkefeng!@#035421
+
+
+  main:
+    allow-bean-definition-overriding: true
+
+
+#eureka:
+#  instance:
+#    hostname: localhost
+#  client:
+#    service-url:
+#      defaultZone: http://admin:123456@${eureka.instance.hostname}:7006/eureka
+#    register-with-eureka: true
+#    fetch-registry: true
+
+#日志打印
+logging:
+  path: D:/Users/log/level
+  level:
+    com.vsofo.applet.pigfarmstat.mapper: debug

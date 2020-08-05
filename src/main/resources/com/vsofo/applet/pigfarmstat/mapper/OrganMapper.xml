@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.vsofo.applet.pigfarmstat.mapper.OrganMapper">
+    <sql id="organ">
+        SELECT OrganId FROM [dbo].[V_WeChat_Organ] WHERE WxOrganId != 10000
+    </sql>
+    <sql id="organIds">
+        ${alias}.OrganID IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <sql id="notOrganIds">
+        ${alias}.OrganID NOT IN (
+        <include refid="organ"></include>
+        )
+    </sql>
+    <!-- #其他猪场（合作)-->
+    <sql id="cooperation">
+        select FarmID FROM [dbo].[V_Farms] F WHERE
+        <include refid="notOrganIds"><property name="alias" value="F"/></include>
+    </sql>
+
+    <sql id="getFarmIds">
+        SELECT FarmID FROM V_EmployeeFarm WHERE EmployeeID = #{user.employeeId}
+    </sql>
+
+    <select id="findOrgan" resultType="com.vsofo.applet.pigfarmstat.pojo.Organ">
+        SELECT OrganID,OrganName FROM V_Organ WHERE OrganID in (2,3,4,5)
+    </select>
+
+    <select id="findWeChatOrgan" resultType="com.vsofo.applet.pigfarmstat.pojo.Organ">
+        SELECT OrganID,OrganName FROM V_WeChat_Organ
+    </select>
+
+    <select id="findOrganVo" resultType="com.vsofo.applet.pigfarmstat.vo.farms.FarmsVo">
+         SELECT OrganID as farmId,OrganName as farmName , '区' as chineseSpell FROM V_Organ
+         WHERE OrganID in (2,3,4,5)
+         union
+         select 10000 as farmId,'其他猪场（合作)' as farmName , '区' as chineseSpell
+    </select>
+
+    <select id="findOrganVoById" resultType="com.vsofo.applet.pigfarmstat.vo.farms.FarmsVo">
+        SELECT OrganID as farmId,OrganName as farmName , '区' as chineseSpell FROM V_Organ WHERE OrganID = #{id}
+    </select>
+
+    <select id="findWeChatOrganVo" resultType="com.vsofo.applet.pigfarmstat.vo.farms.FarmsVo">
+         SELECT WxOrganId as farmId,OrganName as farmName , '区' as chineseSpell FROM V_WeChat_Organ
+    </select>
+
+    <select id="findWeChatOrganVoByWxId" resultType="com.vsofo.applet.pigfarmstat.vo.farms.FarmsVo">
+        SELECT WxOrganId as farmId,OrganName as farmName , '区' as chineseSpell FROM V_WeChat_Organ WHERE WxOrganId = #{wxOrganId}
+    </select>
+
+</mapper>
